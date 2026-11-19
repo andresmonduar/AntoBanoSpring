@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AntoBano - Módulo Spring Boot</title>
+    <style>
+        /* Estilos corporativos de AntoBano: Blanco (#FFFFFF) y Naranja (#FF7802) */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            color: #333333;
+        }
+        header {
+            background-color: #FF7802;
+            color: #FFFFFF;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+        header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        header p {
+            margin: 5px 0 0;
+            font-size: 14px;
+        }
+        .contenedor {
+            max-width: 900px;
+            margin: 30px auto;
+            background-color: #FFFFFF;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+        h2 {
+            color: #FF7802;
+            border-bottom: 2px solid #FF7802;
+            padding-bottom: 8px;
+            margin-top: 0;
+        }
+        .formulario-grupo {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .campo {
+            flex: 1;
+            min-width: 200px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .btn-naranja {
+            background-color: #FF7802;
+            color: #FFFFFF;
+            border: none;
+            padding: 12px 22px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-naranja:hover {
+            background-color: #e06700;
+        }
+        .btn-cancelar {
+            background-color: #777777;
+            color: #FFFFFF;
+            text-decoration: none;
+            padding: 12px 18px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th {
+            background-color: #FF7802;
+            color: #FFFFFF;
+            text-align: left;
+            padding: 12px;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eeeeee;
+        }
+        tr:hover {
+            background-color: #fff8f2;
+        }
+        .accion-editar {
+            color: #FF7802;
+            font-weight: bold;
+            text-decoration: none;
+            margin-right: 12px;
+        }
+        .accion-eliminar {
+            color: #d93025;
+            font-weight: bold;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Encabezado principal -->
+<header>
+    <h1>AntoBano Delivery</h1>
+    <p>Módulo de Gestión de Productos (Framework Spring Boot + MySQL)</p>
+</header>
+
+<div class="contenedor">
+    <!-- Formulario conectado al controlador mediante Thymeleaf -->
+    <h2 th:text="${producto.id != null} ? 'Editar Producto #' + ${producto.id} : 'Registrar Nuevo Producto'"></h2>
+
+    <form th:action="@{/guardar}" th:object="${producto}" method="POST">
+        <!-- Campo oculto para conservar el ID al actualizar un registro -->
+        <input type="hidden" th:field="*{id}" />
+
+        <div class="formulario-grupo">
+            <div class="campo">
+                <label for="nombre">Nombre del producto:</label>
+                <input type="text" id="nombre" th:field="*{nombre}" required
+                       placeholder="Ej. Hamburguesa Doble AntoBano" />
+            </div>
+
+            <div class="campo">
+                <label for="categoria">Categoría:</label>
+                <select id="categoria" th:field="*{categoria}" required>
+                    <option value="Hamburguesas">Hamburguesas</option>
+                    <option value="Perros Calientes">Perros Calientes</option>
+                    <option value="Salchipapas">Salchipapas</option>
+                    <option value="Bebidas">Bebidas</option>
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="precio">Precio ($ COP):</label>
+                <input type="number" step="100" id="precio" th:field="*{precio}" required
+                       placeholder="Ej. 18500" />
+            </div>
+        </div>
+
+        <button type="submit" class="btn-naranja"
+                th:text="${producto.id != null} ? 'Guardar Cambios' : 'Agregar al Menú'"></button>
+
+        <a th:if="${producto.id != null}" th:href="@{/}" class="btn-cancelar">Cancelar edición</a>
+    </form>
+
+    <br><br>
+
+    <!-- Tabla dinamica que recorre los productos obtenidos de MySQL -->
+    <h2>Menú Actual de AntoBano</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:if="${#lists.isEmpty(listaProductos)}">
+                <td colspan="5" style="text-align: center;">No hay productos registrados todavía.</td>
+            </tr>
+            <tr th:each="prod : ${listaProductos}">
+                <td><strong th:text="'#' + ${prod.id}"></strong></td>
+                <td th:text="${prod.nombre}"></td>
+                <td th:text="${prod.categoria}"></td>
+                <td th:text="'$ ' + ${#numbers.formatDecimal(prod.precio, 1, 'POINT', 0, 'COMMA')}"></td>
+                <td>
+                    <a class="accion-editar" th:href="@{/editar/{id}(id=${prod.id})}">Editar</a>
+                    <a class="accion-eliminar" th:href="@{/eliminar/{id}(id=${prod.id})}"
+                       onclick="return confirm('¿Seguro que deseas eliminar este producto?');">Eliminar</a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+</body>
+</html>
