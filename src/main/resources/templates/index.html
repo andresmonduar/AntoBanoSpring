@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AntoBano - Módulo Spring Boot</title>
+    <title>AntoBano - Módulo Spring Boot con Validaciones</title>
     <style>
         /* Estilos corporativos de AntoBano: Blanco (#FFFFFF) y Naranja (#FF7802) */
         body {
@@ -48,11 +48,9 @@
             font-weight: bold;
             cursor: pointer;
             box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-            transition: transform 0.15s ease, background-color 0.15s ease;
         }
         .btn-ver-carrito:hover {
             background-color: #fff3e6;
-            transform: scale(1.03);
         }
         .contenedor {
             max-width: 950px;
@@ -67,6 +65,31 @@
             border-bottom: 2px solid #FF7802;
             padding-bottom: 8px;
             margin-top: 0;
+        }
+        /* Caja de alertas de validacion para evidencias de prueba */
+        .alerta-error {
+            display: none;
+            background-color: #fdecea;
+            color: #b71c1c;
+            border: 1px solid #f5c6cb;
+            border-left: 5px solid #d93025;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 18px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .alerta-exito {
+            display: none;
+            background-color: #e8f5e9;
+            color: #1b5e20;
+            border: 1px solid #c8e6c9;
+            border-left: 5px solid #2e7d32;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 18px;
+            font-weight: bold;
+            font-size: 14px;
         }
         .formulario-grupo {
             display: flex;
@@ -84,7 +107,13 @@
             margin-bottom: 5px;
             font-size: 14px;
         }
-        input[type="text"], input[type="number"], select {
+        small.ayuda {
+            display: block;
+            color: #666666;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        input[type="text"], input[type="number"], input[type="date"], select {
             width: 100%;
             padding: 10px;
             border: 1px solid #cccccc;
@@ -132,7 +161,6 @@
         tr:hover {
             background-color: #fff8f2;
         }
-        /* Estilos de los enlaces y botones de accion en la tabla */
         .accion-editar {
             color: #FF7802;
             font-weight: bold;
@@ -158,7 +186,6 @@
         .btn-carrito:hover {
             background-color: #1b5e20;
         }
-        /* Estilos del panel de estadisticas y carrito */
         .estadisticas-grid {
             display: flex;
             flex-wrap: wrap;
@@ -226,15 +253,18 @@
         <p>Módulo de Gestión de Productos (Framework Spring Boot + MySQL)</p>
     </div>
 
-    <!-- Boton que muestra la cantidad actual y despliega el apartado del carrito -->
     <button type="button" id="btn-header-carrito" class="btn-ver-carrito" onclick="toggleCarrito()">
         🛒 Carrito (0)
     </button>
 </header>
 
-<!-- Apartado desplegable del Carrito (oculto hasta que el usuario haga clic en el boton superior) -->
+<!-- Apartado desplegable del Carrito -->
 <div id="seccion-carrito" class="contenedor" style="display: none; border: 2px solid #FF7802;">
     <h2>Carrito</h2>
+
+    <!-- Alerta de validacion para fecha de entrega del pedido -->
+    <div id="alerta-carrito" class="alerta-error"></div>
+    <div id="exito-carrito" class="alerta-exito"></div>
 
     <!-- Tarjetas de estadisticas del pedido actual -->
     <div class="estadisticas-grid">
@@ -249,6 +279,18 @@
         <div class="tarjeta-estadistica">
             <span>Total acumulado del pedido</span>
             <strong id="stat-total">$ 0</strong>
+        </div>
+    </div>
+
+    <!-- Selector de fecha de entrega con validacion -->
+    <div class="formulario-grupo" style="align-items: flex-end; background: #fafafa; padding: 12px; border-radius: 6px;">
+        <div class="campo" style="max-width: 280px;">
+            <label for="fecha-entrega">Fecha programada de entrega:</label>
+            <input type="date" id="fecha-entrega" />
+            <small class="ayuda">Solo permite fechas iguales o posteriores a hoy.</small>
+        </div>
+        <div>
+            <button type="button" class="btn-naranja" onclick="confirmarPedido()">Validar Pedido y Fecha</button>
         </div>
     </div>
 
@@ -280,34 +322,39 @@
 
 <!-- Contenedor principal del formulario y menu -->
 <div class="contenedor">
-    <!-- Formulario conectado al controlador mediante Thymeleaf -->
     <h2 th:text="${producto.id != null} ? 'Editar Producto #' + ${producto.id} : 'Registrar Nuevo Producto'"></h2>
 
-    <form th:action="@{/guardar}" th:object="${producto}" method="POST">
-        <!-- Campo oculto para conservar el ID al actualizar un registro -->
+    <!-- Caja donde se muestran los errores de validacion (longitud, caracteres, numeros) -->
+    <div id="alerta-formulario" class="alerta-error"></div>
+
+    <!-- Formulario con validacion controlada antes de enviar a Spring Boot -->
+    <form th:action="@{/guardar}" th:object="${producto}" method="POST" onsubmit="return validarFormularioProducto()">
         <input type="hidden" th:field="*{id}" />
 
         <div class="formulario-grupo">
             <div class="campo">
                 <label for="nombre">Nombre del producto:</label>
-                <input type="text" id="nombre" th:field="*{nombre}" required
+                <input type="text" id="nombre" th:field="*{nombre}"
                        placeholder="Ej. Hamburguesa Doble AntoBano" />
+                <small class="ayuda">Mínimo 3 y máximo 50 caracteres. Sin símbolos especiales (@#$%).</small>
             </div>
 
             <div class="campo">
                 <label for="categoria">Categoría:</label>
-                <select id="categoria" th:field="*{categoria}" required>
+                <select id="categoria" th:field="*{categoria}">
                     <option value="Hamburguesas">Hamburguesas</option>
                     <option value="Perros Calientes">Perros Calientes</option>
                     <option value="Salchipapas">Salchipapas</option>
                     <option value="Bebidas">Bebidas</option>
                 </select>
+                <small class="ayuda">Seleccione una categoría válida del menú.</small>
             </div>
 
             <div class="campo">
                 <label for="precio">Precio ($ COP):</label>
-                <input type="number" step="100" id="precio" th:field="*{precio}" required
+                <input type="number" step="100" id="precio" th:field="*{precio}"
                        placeholder="Ej. 18500" />
+                <small class="ayuda">Valor numérico entre $ 500 y $ 500.000 COP.</small>
             </div>
         </div>
 
@@ -341,7 +388,6 @@
                 <td th:text="${prod.categoria}"></td>
                 <td th:text="'$ ' + ${#numbers.formatDecimal(prod.precio, 1, 'POINT', 0, 'COMMA')}"></td>
                 <td>
-                    <!-- Botones de edicion, eliminacion y agregado al carrito -->
                     <a class="accion-editar" th:href="@{/editar/{id}(id=${prod.id})}">Editar</a>
                     <a class="accion-eliminar" th:href="@{/eliminar/{id}(id=${prod.id})}"
                        onclick="return confirm('¿Seguro que deseas eliminar este producto?');">Eliminar</a>
@@ -356,14 +402,106 @@
     </table>
 </div>
 
-<!-- Logica JavaScript comentada para gestionar el carrito, contador y estadisticas -->
+<!-- Logica JavaScript comentada para validaciones de campos, fechas y carrito -->
 <script>
-    // Arreglo en memoria donde se almacenan los productos seleccionados
     let carrito = [];
 
     /**
-     * Muestra u oculta el apartado del Carrito en la misma ventana al hacer clic en el boton superior.
+     * Valida los datos del formulario antes de enviarlos al servidor:
+     * 1. Campos obligatorios (no vacios)
+     * 2. Longitud de texto (entre 3 y 50 caracteres)
+     * 3. Caracteres especiales (solo letras, numeros y espacios)
+     * 4. Rango numerico del precio (entre 500 y 500.000)
      */
+    function validarFormularioProducto() {
+        const nombre = document.getElementById('nombre').value.trim();
+        const precioTexto = document.getElementById('precio').value.trim();
+        const precio = parseFloat(precioTexto);
+        const cajaError = document.getElementById('alerta-formulario');
+
+        // Expresion regular que permite unicamente letras, tildes, enie, numeros y espacios
+        const regexPermitido = /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9 ]+$/;
+
+        // 1. Validacion de campo vacio
+        if (nombre === '') {
+            mostrarErrorFormulario('Error de validación (Campo vacío): El nombre del producto es obligatorio.');
+            return false;
+        }
+
+        // 2. Validacion de longitud minima y maxima
+        if (nombre.length < 3 || nombre.length > 50) {
+            mostrarErrorFormulario('Error de validación (Longitud): El nombre debe tener entre 3 y 50 caracteres (actual: ' + nombre.length + ').');
+            return false;
+        }
+
+        // 3. Validacion de caracteres especiales
+        if (!regexPermitido.test(nombre)) {
+            mostrarErrorFormulario('Error de validación (Caracteres especiales): No se permiten símbolos como @, #, $, %, & o signos de puntuación.');
+            return false;
+        }
+
+        // 4. Validacion numerica y de rango
+        if (precioTexto === '' || isNaN(precio)) {
+            mostrarErrorFormulario('Error de validación (Tipo de dato): Debe ingresar un valor numérico válido para el precio.');
+            return false;
+        }
+
+        if (precio < 500 || precio > 500000) {
+            mostrarErrorFormulario('Error de validación (Rango numérico): El precio debe estar entre $ 500 y $ 500.000 COP.');
+            return false;
+        }
+
+        cajaError.style.display = 'none';
+        return true;
+    }
+
+    function mostrarErrorFormulario(mensaje) {
+        const cajaError = document.getElementById('alerta-formulario');
+        cajaError.textContent = mensaje;
+        cajaError.style.display = 'block';
+        cajaError.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /**
+     * Valida que el carrito tenga productos y que la fecha seleccionada no sea anterior a hoy.
+     */
+    function confirmarPedido() {
+        const fechaInput = document.getElementById('fecha-entrega').value;
+        const alertaError = document.getElementById('alerta-carrito');
+        const alertaExito = document.getElementById('exito-carrito');
+
+        alertaError.style.display = 'none';
+        alertaExito.style.display = 'none';
+
+        if (carrito.length === 0) {
+            alertaError.textContent = 'Error de validación (Carrito vacío): Agrega al menos un producto antes de validar el pedido.';
+            alertaError.style.display = 'block';
+            return;
+        }
+
+        if (!fechaInput) {
+            alertaError.textContent = 'Error de validación (Fecha obligatoria): Selecciona una fecha programada para la entrega.';
+            alertaError.style.display = 'block';
+            return;
+        }
+
+        // Obtener fecha actual en formato YYYY-MM-DD local
+        const hoy = new Date();
+        const anio = hoy.getFullYear();
+        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoy.getDate()).padStart(2, '0');
+        const fechaHoyTexto = `${anio}-${mes}-${dia}`;
+
+        if (fechaInput < fechaHoyTexto) {
+            alertaError.textContent = 'Error de validación (Fecha inválida): No puedes seleccionar una fecha anterior a hoy (' + fechaHoyTexto + ').';
+            alertaError.style.display = 'block';
+            return;
+        }
+
+        alertaExito.textContent = 'Pedido validado correctamente para la fecha ' + fechaInput + '. ¡Listo para procesar!';
+        alertaExito.style.display = 'block';
+    }
+
     function toggleCarrito() {
         const seccion = document.getElementById('seccion-carrito');
         if (seccion.style.display === 'none') {
@@ -374,68 +512,43 @@
         }
     }
 
-    /**
-     * Agrega un producto del menu al carrito o aumenta su cantidad si ya existe.
-     */
     function agregarAlCarrito(boton) {
         const id = boton.getAttribute('data-id');
         const nombre = boton.getAttribute('data-nombre');
         const precio = parseFloat(boton.getAttribute('data-precio'));
 
-        // Buscar si el producto ya esta dentro del carrito
         const existente = carrito.find(item => item.id === id);
-
         if (existente) {
             existente.cantidad += 1;
         } else {
-            carrito.push({
-                id: id,
-                nombre: nombre,
-                precio: precio,
-                cantidad: 1
-            });
+            carrito.push({ id: id, nombre: nombre, precio: precio, cantidad: 1 });
         }
-
         actualizarVistaCarrito();
     }
 
-    /**
-     * Aumenta o disminuye en 1 la cantidad de un producto dentro del carrito.
-     */
     function cambiarCantidad(id, cambio) {
         const producto = carrito.find(item => item.id === id);
         if (!producto) return;
-
         producto.cantidad += cambio;
-
-        // Si la cantidad llega a 0, se retira automaticamente del carrito
         if (producto.cantidad <= 0) {
             quitarDelCarrito(id);
             return;
         }
-
         actualizarVistaCarrito();
     }
 
-    /**
-     * Elimina por completo un producto especifico del carrito.
-     */
     function quitarDelCarrito(id) {
         carrito = carrito.filter(item => item.id !== id);
         actualizarVistaCarrito();
     }
 
-    /**
-     * Limpia todos los productos del carrito.
-     */
     function vaciarCarrito() {
         carrito = [];
+        document.getElementById('alerta-carrito').style.display = 'none';
+        document.getElementById('exito-carrito').style.display = 'none';
         actualizarVistaCarrito();
     }
 
-    /**
-     * Dibuja la tabla del carrito, actualiza el contador del boton superior y recalcula estadisticas.
-     */
     function actualizarVistaCarrito() {
         const cuerpo = document.getElementById('cuerpo-carrito');
         cuerpo.innerHTML = '';
@@ -473,10 +586,7 @@
             });
         }
 
-        // Actualizar el contador en el boton superior: Carrito (X)
         document.getElementById('btn-header-carrito').textContent = `🛒 Carrito (${totalUnidades})`;
-
-        // Actualizar tarjetas de estadisticas dentro del apartado Carrito
         document.getElementById('stat-unidades').textContent = totalUnidades;
         document.getElementById('stat-variedad').textContent = carrito.length;
         document.getElementById('stat-total').textContent = '$ ' + totalDinero.toLocaleString('es-CO');
